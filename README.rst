@@ -4,7 +4,7 @@ cmsplugin_blog to multilingual-news
 This app adds datamigrations to switch from cmsplugin-blog_ to
 django-multilingual-news_.
 
-.. _cmsplugin_blog: https://github.com/fivethreeo/cmsplugin-blog
+.. _cmsplugin-blog: https://github.com/fivethreeo/cmsplugin-blog
 .. _django-multilingual-news: https://github.com/bitmazk/django-multilingual-news
 
 It's designed to provide an alternative blog app when updating to django-cms 3
