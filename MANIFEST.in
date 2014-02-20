@@ -1,0 +1,9 @@
+include AUTHORS
+include LICENSE
+include DESCRIPTION
+include CHANGELOG.txt
+include README.md
+graft cmsplugin_blog_to_multilingual_news
+global-exclude *.orig *.pyc *.log *.swp
+prune cmsplugin_blog_to_multilingual_news/tests/coverage
+prune cmsplugin_blog_to_multilingual_news/.ropeproject
