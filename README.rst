@@ -16,17 +16,28 @@ cmsplugin_blog into account.
 Currently supported apps:
 
 * cmsplugin-blog-language-publish_
+* cmsplugin-blog-cagegories_
+* cmsplugin-blog-seo-addons_
 
 .. _cmsplugin-blog-language-publish: https://github.com/bitmazk/cmsplugin-blog-language-publish
+.. _cmsplugin-blog-categories: https://github.com/bitmazk/cmsplugin-blog-categories
+.. _cmsplugin-blog-seo-addons: https://github.com/bitmazk/cmsplugin-blog-seo-addons
 
 Additional features:
 
 * Automatically switch from `BlogApphook` to `MultilingualNewsApphook`
 * Moving content and excerpt placeholders from `cmsplugin_blog.Entry` to
   `multilingual_news.NewsEntry` `excerpt` and `content` fields.
+* Recognizes if `hero_slider` has a `Slideritem.content_object` set to a
+  `cmsplugin_blog.Entry` and changes it accordingly.
 
 Installation
 ------------
+
+Before you install this app, make sure, that you have migrated
+`cmsplugin_blog` to the latest migration
+`0015_auto__add_field_latestentriesplug`, because the datamigration expects at
+least this state. Also apply the latest migrations for the "supported apps".
 
 To get the latest stable release from PyPi
 
@@ -49,11 +60,17 @@ Add ``cmsplugin_blog_to_multilingual_news`` to your ``INSTALLED_APPS``
         'cmsplugin_blog_to_multilingual_news',
     )
 
+Remove `cmsplugin_blog` and all supported apps listed above from your
+`INSTALLED_APPS`. Otherwise Model validation will probably fail.
+
 Usage
 -----
 
-Once all requirements are installed, which should happen automatically or
-already be installed in your environment anyway, you just run the migrations.
+It is probably a good idea to test the migration on a local database first to
+make sure, everything worked. You should not run this straight on your live db.
+
+Once all requirements are installed and `INSTALLED_APPS` is properly set,
+you just run the migrations.
 
 .. code-block:: bash
 
