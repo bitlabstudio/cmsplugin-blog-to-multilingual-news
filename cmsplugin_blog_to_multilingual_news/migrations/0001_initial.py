@@ -570,6 +570,14 @@ class Migration(SchemaMigration):
             self.migrate_placeholder(
                 orm, entry, news_entry, 'excerpt', 'multilingual_news_excerpt', 'excerpt')
 
+            # change the page apphooks from BlogCategoriesApphook to
+            # MultilingualNewsApphook
+            if 'cmsplugin_blog_categories_category' in table_names:
+                for page in orm['cms.Page'].objects.all():
+                    if page.application_urls == 'BlogCategoriesApphook':
+                        page.application_urls = 'MultilingualNewsApphook'
+                        page.save()
+
     def backwards(self, orm):
         pass
 
