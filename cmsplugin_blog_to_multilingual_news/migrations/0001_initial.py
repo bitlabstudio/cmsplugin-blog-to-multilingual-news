@@ -3,6 +3,7 @@
 from south.utils import datetime_utils as datetime
 from south.db import db
 from south.v2 import SchemaMigration
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, connection
 
@@ -323,6 +324,37 @@ def get_models():
             'current_language_only': ('django.db.models.fields.BooleanField', [], {}),
             'limit': ('django.db.models.fields.PositiveIntegerField', [], {})
         },
+        u'multilingual_tags.tag': {
+            'Meta': {'object_name': 'Tag'},
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'slug': ('django.db.models.fields.SlugField', [], {'unique': 'True', 'max_length': '64'})
+        },
+        u'multilingual_tags.taggeditem': {
+            'Meta': {'unique_together': "(('content_type', 'object_id', 'tag'),)", 'object_name': 'TaggedItem'},
+            'content_type': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['contenttypes.ContentType']"}),
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'object_id': ('django.db.models.fields.PositiveIntegerField', [], {}),
+            'tag': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'tagged_items'", 'to': u"orm['multilingual_tags.Tag']"})
+        },
+        u'multilingual_tags.tagtranslation': {
+            'Meta': {'unique_together': "[('language_code', 'master')]", 'object_name': 'TagTranslation', 'db_table': "u'multilingual_tags_tag_translation'"},
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'language_code': ('django.db.models.fields.CharField', [], {'max_length': '15', 'db_index': 'True'}),
+            'master': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'translations'", 'null': 'True', 'to': u"orm['multilingual_tags.Tag']"}),
+            'name': ('django.db.models.fields.CharField', [], {'max_length': '64'})
+        },
+        'tagging.tag': {
+            'Meta': {'ordering': "('name',)", 'object_name': 'Tag'},
+            'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'name': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '50', 'db_index': 'True'})
+        },
+        'tagging.taggeditem': {
+            'Meta': {'object_name': 'TaggedItem'},
+            'content_type': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['contenttypes.ContentType']"}),
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'object_id': ('django.db.models.fields.PositiveIntegerField', [], {}),
+            'tag': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'taggeditem_set'", 'to': u"orm['tagging.Tag']"})
+        },
         u'contenttypes.contenttype': {
             'Meta': {'ordering': "('name',)", 'unique_together': "(('app_label', 'model'),)", 'object_name': 'ContentType', 'db_table': "'django_content_type'"},
             'app_label': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
@@ -336,8 +368,24 @@ def get_models():
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'name': ('django.db.models.fields.CharField', [], {'max_length': '50'})
         }
+
     }
     table_names = connection.introspection.table_names()
+    if 'tagging_translated_tagtranslated' in table_names:
+        models.update({
+            'tagging_translated.tagtranslated': {
+                'Meta': {'object_name': 'TagTranslated'},
+                'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+                'tag': ('django.db.models.fields.related.OneToOneField', [], {'related_name': "'translated'", 'unique': 'True', 'to': "orm['tagging.Tag']"})
+            },
+            'tagging_translated.tagtranslatedtranslation': {
+                'Meta': {'unique_together': "[('language_code', 'master')]", 'object_name': 'TagTranslatedTranslation', 'db_table': "'tagging_translated_tagtranslated_translation'"},
+                'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+                'language_code': ('django.db.models.fields.CharField', [], {'max_length': '15', 'db_index': 'True'}),
+                'master': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'translations'", 'null': 'True', 'to': "orm['tagging_translated.TagTranslated']"}),
+                'name': ('django.db.models.fields.CharField', [], {'max_length': '256'})
+            }
+        })
     if 'cmsplugin_blog_categories_category' in table_names:
         models.update({
             'cmsplugin_blog_categories.category': {
@@ -492,6 +540,34 @@ class Migration(SchemaMigration):
                 pub_date=entry.pub_date,
                 author=author,
             )
+            # migrate tagging to mutlilingual_tags and re-assign the new
+            # news entries
+            news_entry_ctype = orm['contenttypes.ContentType'].objects.get(app_label='multilingual_news', model='newsentry')
+            entry_ctype = orm['contenttypes.ContentType'].objects.get(app_label='cmsplugin_blog', model='entry')
+            for tagged_item in orm['tagging.TaggedItem'].objects.filter(content_type=entry_ctype, object_id=entry.id):
+                try:
+                    multilingual_tag = orm['multilingual_tags.Tag'].objects.get(
+                        slug=tagged_item.tag.name.lower())
+                except ObjectDoesNotExist:
+                    multilingual_tag = orm['multilingual_tags.Tag'].objects.create(
+                        slug=tagged_item.tag.name.lower())
+                    # optionally taking the translated tags into account
+                    if 'tagging_translated_tagtranslated' in table_names:
+                        for tagtranslated in orm['tagging_translated.TagTranslatedTranslation'].objects.filter(
+                                tagtranslated__tag=tagged_item.tag):
+                            orm['multilingual_tags.TagTranslation'].objects.get_or_create(
+                                language_code=tagtranslated.language_code,
+                                master=multilingual_tag,
+                                name=tagtranslated.name)
+                    else:
+                        orm['multilingual_tags.TagTranslation'].objects.get_or_create(
+                            language_code=settings.LANGUAGE_CODE,
+                            master=multilingual_tag,
+                            name=tagged_item.tag.name)
+                orm['multilingual_tags.TaggedItem'].objects.get_or_create(
+                    content_type=news_entry_ctype, object_id=news_entry.id,
+                    tag=multilingual_tag)
+
             for title in orm['cmsplugin_blog.EntryTitle'].objects.filter(entry=entry):
                 # if cmsplugin_blog_seo_addons is present, we migrate the data over from
                 # there
