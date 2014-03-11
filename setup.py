@@ -39,7 +39,7 @@ dev_requires = [
 install_requires = [
     'django',
     'cmsplugin_blog',
-    'multilingual_news',
+    'django-multilingual-news',
     'hvad',
     'south',
 ]
